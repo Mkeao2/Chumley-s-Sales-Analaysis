@@ -1,15 +1,17 @@
 ---
-title: "Sales Analysis"
+title: "Occupancy analysis"
 author: "Makaylee Crone"
 date: "2026-01-19"
 output: html_document
 ---
+__How many guests come in during extreme weather events?__ 
 
+# Load required libraries
 ```{r}
-library(readxl)
+library(dplyr)
 ```
 
-# Import data and keep desired rows/columns
+# Import sales and product data, keeping only desired rows/columns
 ```{r}
 
 Products_2025 <- read.csv("Products_2025.csv", skip = 2)
@@ -17,15 +19,45 @@ Products_2024 <- read.csv("Products_2024.csv", skip = 2)
 Sales_2024 <- read.csv("Sales_2024.csv", skip = 62)
 Sales_2025 <- read.csv("Sales_2025.csv", skip = 62)
 
+Sales_2024 <- Sales_2024[c(1:360), ]
+Sales_2025 <- Sales_2025[c(1:358), ]
 
-colnames(Sales_2024) <- c("DOY", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
-colnames(Sales_2025) <- c("DOY", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
+colnames(Sales_2024) <- c("Date", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
+colnames(Sales_2025) <- c("Date", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
 colnames(Products_2024) <- c("Type", "Name", "Sold", "Comp", "Price", "Comps", "Gross_profit", "Receipt_total", "Category")
 colnames(Products_2025) <- c("Type", "Name", "Sold", "Comp", "Price", "Comps", "Gross_profit", "Receipt_total", "Category")
 
 Products_2025 <- Products_2025 %>% select(Type, Name, Sold, Comp, Price, Comps, Gross_profit, Receipt_total, Category)
 Products_2024 <- Products_2024 %>% select(Type, Name, Sold, Comp, Price, Comps, Gross_profit, Receipt_total, Category)
-Sales_2025 <- Sales_2025 %>% select (DOY, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
-Sales_2024 <- Sales_2024 %>% select (DOY, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
+Sales_2025 <- Sales_2025 %>% select (Date, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
+Sales_2024 <- Sales_2024 %>% select (Date, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
 ```
 
+# Import weather data from The PA State Climatologist - https://climate.met.psu.edu/data/ida/index.php?t=3&x=faa_daily&id=KUNV
+
+```{r}
+Weather_data <- read.csv("Weather data 2024-2025 - Sheet1.csv")
+
+colnames(Weather_data) <- c("Date", "Avg_temp", "Max_temp", "Min_temp", "Precipitation", "Max_wind")
+
+Weather_data[is.na(Weather_data)] <- 0
+
+```
+
+
+# Change date formats in sales dataset to match those in weather dataset
+```{r}
+Sales_Dates_2024 <- as.Date(Sales_2024$Date, format = "%m/%d/%Y")
+Sales_Dates_2025 <- as.Date(Sales_2025$Date, format = "%m/%d/%Y")
+Weather_Dates <- as.Date(Weather_data$Date)
+
+Sales_2024$Date <- Sales_Dates_2024
+Sales_2025$Date <- Sales_Dates_2025
+Weather_data$Date <- Weather_Dates
+```
+
+# Combine sales and weather datasets
+```{r}
+All_Sales <- full_join(Sales_2024, Sales_2025)
+Sales_and_weather <- full_join(All_Sales, Weather_data)
+```
