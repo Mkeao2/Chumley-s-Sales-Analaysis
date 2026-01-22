@@ -9,6 +9,11 @@ __How many guests come in during extreme weather events?__
 # Load required libraries
 ```{r}
 library(dplyr)
+library(DataExplorer)
+library(ggplot2)
+library(lme4)
+library(Matrix)
+library(effects)
 ```
 
 # Import sales and product data, keeping only desired rows/columns
@@ -19,18 +24,18 @@ Products_2024 <- read.csv("Products_2024.csv", skip = 2)
 Sales_2024 <- read.csv("Sales_2024.csv", skip = 62)
 Sales_2025 <- read.csv("Sales_2025.csv", skip = 62)
 
-Sales_2024 <- Sales_2024[c(1:360), ]
-Sales_2025 <- Sales_2025[c(1:358), ]
+Sales_2024 <- Sales_2024[c(1:360), -c(3,5) ]
+Sales_2025 <- Sales_2025[c(1:358), -c(3,5) ]
 
-colnames(Sales_2024) <- c("Date", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
-colnames(Sales_2025) <- c("Date", "Total_Guests", "Total_checks", "Guest_avg", "Check_avg", "Turns")
+colnames(Sales_2024) <- c("Date", "Total_Guests", "Guest_avg", "Turns")
+colnames(Sales_2025) <- c("Date", "Total_Guests", "Guest_avg", "Turns")
 colnames(Products_2024) <- c("Type", "Name", "Sold", "Comp", "Price", "Comps", "Gross_profit", "Receipt_total", "Category")
 colnames(Products_2025) <- c("Type", "Name", "Sold", "Comp", "Price", "Comps", "Gross_profit", "Receipt_total", "Category")
 
 Products_2025 <- Products_2025 %>% select(Type, Name, Sold, Comp, Price, Comps, Gross_profit, Receipt_total, Category)
 Products_2024 <- Products_2024 %>% select(Type, Name, Sold, Comp, Price, Comps, Gross_profit, Receipt_total, Category)
-Sales_2025 <- Sales_2025 %>% select (Date, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
-Sales_2024 <- Sales_2024 %>% select (Date, Total_Guests, Total_checks, Guest_avg, Check_avg, Turns)
+Sales_2025 <- Sales_2025 %>% select (Date, Total_Guests, Guest_avg, Turns)
+Sales_2024 <- Sales_2024 %>% select (Date, Total_Guests, Guest_avg, Turns)
 ```
 
 # Import weather data from The PA State Climatologist - https://climate.met.psu.edu/data/ida/index.php?t=3&x=faa_daily&id=KUNV
@@ -60,4 +65,55 @@ Weather_data$Date <- Weather_Dates
 ```{r}
 All_Sales <- full_join(Sales_2024, Sales_2025)
 Sales_and_weather <- full_join(All_Sales, Weather_data)
+
+Sales_and_weather$Total_Guests <- as.numeric(Sales_and_weather$Total_Guests)
+Sales_and_weather$Guest_avg <- as.numeric(Sales_and_weather$Guest_avg)
+Sales_and_weather$Turns <- as.numeric(Sales_and_weather$Turns)
+```
+
+#Assess variable distribution
+```{r}
+
+plot_histogram(Sales_and_weather)
+
+``` 
+
+
+#Split data into two subsets - days with precipitation and days without
+```{r}
+
+Precipitation <- Sales_and_weather %>%
+  filter(Precipitation > 0 & Precipitation < 0.6)
+
+No_Precipitation <- Sales_and_weather %>%
+  filter(Precipitation == 0)
+
+```
+
+
+
+```{r}
+plot_histogram(Precipitation)
+plot_histogram(No_Precipitation)
+``` 
+#Fit GLM
+```{r}
+Precip_model <- glm(Total_Guests ~ Precipitation + Min_temp + Max_temp, family = poisson(link = "log"), data = Precipitation)
+
+summary(Precip_model)
+
+```
+#Plot model and line of best fit - note that a glm model may not work for this. Do we have enough 
+data? Check online to see if anyone else has done a weather occupancy model.
+```{r}
+plot(Precipitation$Total_Guests ~ Precipitation$Precipitation)
+
+
+Precip_model <- glm(Total_Guests ~ Precipitation + Min_temp + Max_temp, family = poisson(link = "log"), data = Precipitation)
+
+ggplot(Precipitation, aes(x = Precipitation, y = Total_Guests)) +
+  geom_point() +
+  geom_smooth(method = "glm", method.args = list(family = "poisson"), se = TRUE, color = "blue") +
+  labs(title = "Poisson GLM line of best fit with ggplot2")
+
 ```
